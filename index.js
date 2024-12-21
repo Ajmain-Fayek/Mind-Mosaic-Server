@@ -91,6 +91,26 @@ async function run() {
             res.status(200).json(blogs);
         });
 
+        app.get("/api/blogs/search", async (req, res) => {
+            const { category, query } = req.query;
+            let filter = {};
+
+            if (category) {
+                filter.category = category;
+            }
+
+            if (query) {
+                filter.title = { $regex: query, $options: "i" };
+            }
+
+            const blogs = await blogsCollection
+                .find(filter)
+                .sort({ publishedDate: -1 })
+                .toArray();
+
+            res.status(200).json(blogs);
+        });
+
         app.get("/api/blogs/recent", async (req, res) => {
             const blogs = await blogsCollection
                 .find({})
@@ -131,6 +151,35 @@ async function run() {
         // ---------------------------------------------
         // Comments Related APIs
         // ---------------------------------------------
+        app.get("/api/comments/:blogId", async (req, res) => {
+            const blogId = req.params.blogId;
+            const comments = await commentsCollection
+                .find({ blogId: blogId })
+                .toArray();
+            res.status(200).json(comments);
+        });
+
+        app.post("/api/comments", async (req, res) => {
+            const newComment = req.body;
+            const result = await commentsCollection.insertOne(newComment);
+            res.status(201).json(result);
+        });
+
+        app.put("/api/comments/:id", async (req, res) => {
+            const id = new ObjectId(req.params.id);
+            const updatedComment = req.body;
+            const result = await commentsCollection.updateOne(
+                { _id: id },
+                { $set: updatedComment }
+            );
+            res.status(200).json(result);
+        });
+
+        app.delete("/api/comments/:id", async (req, res) => {
+            const id = new ObjectId(req.params.id);
+            const result = await commentsCollection.deleteOne({ _id: id });
+            res.status(200).json(result);
+        });
 
         console.log("Collections created: users, comments, blogs");
         // Your database operations go here
