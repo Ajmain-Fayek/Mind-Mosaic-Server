@@ -96,6 +96,41 @@ async function run() {
         });
 
         // ---------------------------------------------
+        // Users Related APIs
+        // ---------------------------------------------
+        // Get a specific user by email
+        app.get("/api/users/:email", async (req, res) => {
+            const email = req.params.email;
+            const user = await usersCollection.findOne({ email });
+            res.status(200).json(user);
+        });
+
+        // Create a user to the Users collection
+        app.post("/api/users", async (req, res) => {
+            const newUser = req.body;
+            const result = await usersCollection.insertOne(newUser);
+            res.status(201).json(result);
+        });
+
+        // Update a single user by id
+        app.put("/api/users/:id", async (req, res) => {
+            const id = new ObjectId(req.params.id);
+            const updatedUser = req.body;
+            const result = await usersCollection.updateOne(
+                { _id: id },
+                { $set: updatedUser }
+            );
+            res.status(200).json(result);
+        });
+
+        // Delete a single user by id
+        app.delete("/api/users/:id", async (req, res) => {
+            const id = new ObjectId(req.params.id);
+            const result = await usersCollection.deleteOne({ _id: id });
+            res.status(200).json(result);
+        });
+
+        // ---------------------------------------------
         // Blogs Related APIs
         // ---------------------------------------------
         // Get all blogs (unsorted)
@@ -104,7 +139,7 @@ async function run() {
             res.status(200).json(blogs);
         });
 
-        // Get blogs by category and query sorted by recent published date
+        // Get blogs by category and query, sorted by recent published date
         app.get("/api/blogs/search", async (req, res) => {
             const { category, query } = req.query;
             let filter = {};
@@ -142,14 +177,14 @@ async function run() {
             res.status(200).json(blog);
         });
 
-        // Add a blog to the database
+        // Add a blog to the Blogs collection
         app.post("/api/blogs", async (req, res) => {
             const newBlog = req.body;
             const result = await blogsCollection.insertOne(newBlog);
             res.status(201).json(result);
         });
 
-        // Update a single blog a blog by id
+        // Update a single blog by id
         app.put("/api/blogs/:id", async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedBlog = req.body;
@@ -179,7 +214,7 @@ async function run() {
             res.status(200).json(comments);
         });
 
-        // Add a comment to the database
+        // Add a comment to Comments collection
         app.post("/api/comments", async (req, res) => {
             const newComment = req.body;
             const result = await commentsCollection.insertOne(newComment);
