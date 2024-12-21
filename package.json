@@ -15,7 +15,7 @@
         "start": "node index.js"
     },
     "keywords": [],
-    "author": "",
+    "author": "Ajmain Fayek",
     "license": "ISC",
-    "description": ""
+    "description": "A simple server for MindMosaic : A Blogging Platform"
 }

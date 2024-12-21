@@ -9,6 +9,9 @@ const favicon = require("serve-favicon");
 const jwt = require("jsonwebtoken");
 const app = express();
 
+// ---------------------------------------------
+// Middlewares
+// ---------------------------------------------
 app.use(favicon(path.join(__dirname, "public", "favicon.png")));
 app.use(
     cors({
@@ -19,6 +22,9 @@ app.use(
 app.use(cookieParser());
 app.use(express.json());
 
+// ---------------------------------------------
+// JWT Middleware
+// ---------------------------------------------
 const verifyJWT = (req, res, next) => {
     const token = req.cookies.token;
     if (!token) {
@@ -33,6 +39,9 @@ const verifyJWT = (req, res, next) => {
     return next();
 };
 
+// ---------------------------------------------
+// MongoDB Connection
+// ---------------------------------------------
 const uri = process.env.DB_URI;
 const client = new MongoClient(uri, {
     serverApi: {
@@ -42,6 +51,9 @@ const client = new MongoClient(uri, {
     },
 });
 
+// ---------------------------------------------
+// Routes
+// ---------------------------------------------
 async function run() {
     try {
         // await client.connect();
@@ -86,11 +98,13 @@ async function run() {
         // ---------------------------------------------
         // Blogs Related APIs
         // ---------------------------------------------
+        // Get all blogs (unsorted)
         app.get("/api/blogs", async (req, res) => {
             const blogs = await blogsCollection.find({}).toArray();
             res.status(200).json(blogs);
         });
 
+        // Get blogs by category and query sorted by recent published date
         app.get("/api/blogs/search", async (req, res) => {
             const { category, query } = req.query;
             let filter = {};
@@ -111,6 +125,7 @@ async function run() {
             res.status(200).json(blogs);
         });
 
+        // Get all blogs, sorted by recent published date
         app.get("/api/blogs/recent", async (req, res) => {
             const blogs = await blogsCollection
                 .find({})
@@ -119,6 +134,7 @@ async function run() {
             res.status(200).json(blogs);
         });
 
+        // Get a single blog by id
         app.get("/api/blogs/:id", async (req, res) => {
             // console.log("client request for blog id: ", req.params.id);
             const id = new ObjectId(req.params.id);
@@ -126,12 +142,14 @@ async function run() {
             res.status(200).json(blog);
         });
 
+        // Add a blog to the database
         app.post("/api/blogs", async (req, res) => {
             const newBlog = req.body;
             const result = await blogsCollection.insertOne(newBlog);
             res.status(201).json(result);
         });
 
+        // Update a single blog a blog by id
         app.put("/api/blogs/:id", async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedBlog = req.body;
@@ -142,6 +160,7 @@ async function run() {
             res.status(200).json(result);
         });
 
+        // Delete a single blog by id
         app.delete("/api/blogs/:id", async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await blogsCollection.deleteOne({ _id: id });
@@ -151,6 +170,7 @@ async function run() {
         // ---------------------------------------------
         // Comments Related APIs
         // ---------------------------------------------
+        // Get all comments of a specific blog by blogId
         app.get("/api/comments/:blogId", async (req, res) => {
             const blogId = req.params.blogId;
             const comments = await commentsCollection
@@ -159,12 +179,14 @@ async function run() {
             res.status(200).json(comments);
         });
 
+        // Add a comment to the database
         app.post("/api/comments", async (req, res) => {
             const newComment = req.body;
             const result = await commentsCollection.insertOne(newComment);
             res.status(201).json(result);
         });
 
+        // Update a single comment by id
         app.put("/api/comments/:id", async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedComment = req.body;
@@ -175,6 +197,7 @@ async function run() {
             res.status(200).json(result);
         });
 
+        // Delete a single comment by id
         app.delete("/api/comments/:id", async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await commentsCollection.deleteOne({ _id: id });
@@ -190,8 +213,11 @@ async function run() {
 
 run().catch(console.dir);
 
+// ---------------------------------------------
+// Default Route
+// ---------------------------------------------
 app.get("/", (req, res) => {
-    res.status(200).send("Well come to MinsMosaic API");
+    res.status(200).send("Welcome to MindMosaic API");
 });
 
 app.listen(port, () => {
