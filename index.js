@@ -7,7 +7,6 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const favicon = require("serve-favicon");
 const jwt = require("jsonwebtoken");
-const { env } = require("process");
 const app = express();
 
 // ---------------------------------------------
@@ -70,17 +69,17 @@ async function run() {
         // JWT Related APIs
         // ---------------------------------------------
         app.post("/api/login", async (req, res) => {
-            const { username, email } = req.body;
+            const { userName, email } = req.body;
 
             // Replace this with your actual user authentication logic
-            const user = await usersCollection.findOne({ username, email });
+            const user = await usersCollection.findOne({ userName, email });
 
             if (!user) {
                 return res.status(401).send("Invalid username or email");
             }
 
             const token = jwt.sign(
-                { userId: user._id, username: user.username },
+                { userId: user._id, userName: user.userName },
                 process.env.JWT_SECRET,
                 {
                     expiresIn: "3h",
