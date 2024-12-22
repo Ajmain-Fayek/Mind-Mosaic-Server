@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 const path = require("path");
 const favicon = require("serve-favicon");
 const jwt = require("jsonwebtoken");
+const { env } = require("process");
 const app = express();
 
 // ---------------------------------------------
@@ -86,7 +87,10 @@ async function run() {
                 }
             );
 
-            res.cookie("token", token, { httpOnly: true });
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: (process.env.SECURE = "production"),
+            });
             res.status(200).json({ message: "Login successful", token });
         });
 
@@ -99,21 +103,21 @@ async function run() {
         // Users Related APIs
         // ---------------------------------------------
         // Get a specific user by email
-        app.get("/api/users/:email", async (req, res) => {
+        app.get("/api/users/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
             const user = await usersCollection.findOne({ email });
             res.status(200).json(user);
         });
 
         // Create a user to the Users collection
-        app.post("/api/users", async (req, res) => {
+        app.post("/api/users", verifyJWT, async (req, res) => {
             const newUser = req.body;
             const result = await usersCollection.insertOne(newUser);
             res.status(201).json(result);
         });
 
-        // Update a single user by id
-        app.put("/api/users/:id", async (req, res) => {
+        // Update a single user data by id
+        app.put("/api/users/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedUser = req.body;
             const result = await usersCollection.updateOne(
@@ -124,7 +128,7 @@ async function run() {
         });
 
         // Delete a single user by id
-        app.delete("/api/users/:id", async (req, res) => {
+        app.delete("/api/users/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await usersCollection.deleteOne({ _id: id });
             res.status(200).json(result);
@@ -145,11 +149,12 @@ async function run() {
             let filter = {};
 
             if (category) {
-                filter.category = category;
+                filter.category = category.trim();
             }
 
             if (query) {
-                filter.title = { $regex: query, $options: "i" };
+                const trimmedQuery = query.trim();
+                filter.title = { $regex: trimmedQuery, $options: "i" };
             }
 
             const blogs = await blogsCollection
@@ -178,14 +183,23 @@ async function run() {
         });
 
         // Add a blog to the Blogs collection
-        app.post("/api/blogs", async (req, res) => {
+        app.post("/api/blogs", verifyJWT, async (req, res) => {
             const newBlog = req.body;
+            const user = await usersCollection.findOne(
+                { _id: new ObjectId(newBlog.userId) },
+                { projection: { profileImage: 1, userName: 1 } }
+            );
+
+            if (user) {
+                newBlog.userImage = user.profileImage;
+                newBlog.userName = user.userName;
+            }
             const result = await blogsCollection.insertOne(newBlog);
             res.status(201).json(result);
         });
 
         // Update a single blog by id
-        app.put("/api/blogs/:id", async (req, res) => {
+        app.put("/api/blogs/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedBlog = req.body;
             const result = await blogsCollection.updateOne(
@@ -196,7 +210,7 @@ async function run() {
         });
 
         // Delete a single blog by id
-        app.delete("/api/blogs/:id", async (req, res) => {
+        app.delete("/api/blogs/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await blogsCollection.deleteOne({ _id: id });
             res.status(200).json(result);
@@ -215,14 +229,23 @@ async function run() {
         });
 
         // Add a comment to Comments collection
-        app.post("/api/comments", async (req, res) => {
+        app.post("/api/comments", verifyJWT, async (req, res) => {
             const newComment = req.body;
+            const user = await usersCollection.findOne(
+                { _id: new ObjectId(newComment.userId) },
+                { projection: { profileImage: 1, userName: 1 } }
+            );
+
+            if (user) {
+                newComment.userImage = user.profileImage;
+                newComment.userName = user.userName;
+            }
             const result = await commentsCollection.insertOne(newComment);
             res.status(201).json(result);
         });
 
         // Update a single comment by id
-        app.put("/api/comments/:id", async (req, res) => {
+        app.put("/api/comments/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const updatedComment = req.body;
             const result = await commentsCollection.updateOne(
@@ -233,7 +256,7 @@ async function run() {
         });
 
         // Delete a single comment by id
-        app.delete("/api/comments/:id", async (req, res) => {
+        app.delete("/api/comments/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await commentsCollection.deleteOne({ _id: id });
             res.status(200).json(result);
