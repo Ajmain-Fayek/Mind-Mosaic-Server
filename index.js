@@ -15,7 +15,10 @@ const app = express();
 app.use(favicon(path.join(__dirname, "public", "favicon.png")));
 app.use(
     cors({
-        // origin: process.env.CORS_ORIGIN,
+        origin: [
+            process.env.CORS_ORIGIN,
+            "https://mind-mosaic.firebaseapp.com",
+        ],
         credentials: true,
     })
 );
@@ -69,10 +72,10 @@ async function run() {
         // JWT Related APIs
         // ---------------------------------------------
         app.post("/api/login", async (req, res) => {
-            const { userName, email } = req.body;
+            const { email } = req.body;
 
             // Replace this with your actual user authentication logic
-            const user = await usersCollection.findOne({ userName, email });
+            const user = await usersCollection.findOne({ email });
 
             if (!user) {
                 return res.status(401).send("Invalid username or email");
@@ -89,6 +92,8 @@ async function run() {
             res.cookie("token", token, {
                 httpOnly: true,
                 secure: (process.env.SECURE = "production"),
+                sameSite:
+                    process.env.SECURE === "production" ? "none" : "strict",
             });
             res.status(200).json({ message: "Login successful", token });
         });
