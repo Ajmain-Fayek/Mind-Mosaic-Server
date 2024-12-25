@@ -63,18 +63,18 @@ async function run() {
         console.log("Connected to MongoDB");
 
         const db = client.db("MindMosaic");
-
+        // Collections
         const usersCollection = db.collection("users");
         const commentsCollection = db.collection("comments");
         const blogsCollection = db.collection("blogs");
+        const wishlistCollection = db.collection("wishlist");
 
         // ---------------------------------------------
         // JWT Related APIs
         // ---------------------------------------------
         app.post("/api/login", async (req, res) => {
+            // console.log("client request for login: ", req.body);
             const { email } = req.body;
-
-            // Replace this with your actual user authentication logic
             const user = await usersCollection.findOne({ email });
 
             if (!user) {
@@ -82,7 +82,7 @@ async function run() {
             }
 
             const token = jwt.sign(
-                { userId: user._id, userName: user.userName },
+                { userId: user._id, email: user.email },
                 process.env.JWT_SECRET,
                 {
                     expiresIn: "3h",
@@ -91,7 +91,7 @@ async function run() {
 
             res.cookie("token", token, {
                 httpOnly: true,
-                secure: (process.env.SECURE = "production"),
+                secure: process.env.SECURE === "production",
                 sameSite:
                     process.env.SECURE === "production" ? "none" : "strict",
             });
@@ -106,6 +106,16 @@ async function run() {
         // ---------------------------------------------
         // Users Related APIs
         // ---------------------------------------------
+        // Check if a user exists by email
+        app.get("/api/users/exists/:email", async (req, res) => {
+            const email = req.params.email;
+            const user = await usersCollection.findOne({ email });
+            if (user) {
+                res.status(200).json({ exists: true });
+            } else {
+                res.status(200).json({ exists: false });
+            }
+        });
         // Get a specific user by email
         app.get("/api/users/:email", verifyJWT, async (req, res) => {
             const email = req.params.email;
@@ -114,7 +124,7 @@ async function run() {
         });
 
         // Create a user to the Users collection
-        app.post("/api/users", verifyJWT, async (req, res) => {
+        app.post("/api/users", async (req, res) => {
             const newUser = req.body;
             const result = await usersCollection.insertOne(newUser);
             res.status(201).json(result);
@@ -163,9 +173,20 @@ async function run() {
 
             const blogs = await blogsCollection
                 .find(filter)
-                .sort({ publishedDate: -1 })
+                .sort({ publishedDateTime: -1 })
                 .toArray();
 
+            res.status(200).json(blogs);
+        });
+
+        // Get only 10 blogs, sorted by recent published date
+        app.get("/api/blogs/recent/:limit", async (req, res) => {
+            const limit = parseInt(req.params.limit);
+            const blogs = await blogsCollection
+                .find({})
+                .sort({ publishedDateTime: -1 })
+                .limit(limit)
+                .toArray();
             res.status(200).json(blogs);
         });
 
@@ -173,9 +194,27 @@ async function run() {
         app.get("/api/blogs/recent", async (req, res) => {
             const blogs = await blogsCollection
                 .find({})
-                .sort({ publishedDate: -1 })
+                .sort({ publishedDateTime: -1 })
                 .toArray();
             res.status(200).json(blogs);
+        });
+
+        // Get top blogs based on the word count of the long description
+        app.get("/api/blogs/top/:limit", async (req, res) => {
+            const limit = parseInt(req.params.limit);
+            const blogs = await blogsCollection.find({}).toArray();
+
+            blogs.sort((a, b) => {
+                const aWordCount = a.longDescription
+                    ? a.longDescription.split(" ").length
+                    : 0;
+                const bWordCount = b.longDescription
+                    ? b.longDescription.split(" ").length
+                    : 0;
+                return bWordCount - aWordCount;
+            });
+
+            res.status(200).json(blogs.slice(0, limit));
         });
 
         // Get a single blog by id
@@ -189,15 +228,15 @@ async function run() {
         // Add a blog to the Blogs collection
         app.post("/api/blogs", verifyJWT, async (req, res) => {
             const newBlog = req.body;
-            const user = await usersCollection.findOne(
-                { _id: new ObjectId(newBlog.userId) },
-                { projection: { profileImage: 1, userName: 1 } }
-            );
+            // const user = await usersCollection.findOne(
+            //     { _id: new ObjectId(newBlog.userId) },
+            //     { projection: { profileImage: 1, userName: 1 } }
+            // );
 
-            if (user) {
-                newBlog.userImage = user.profileImage;
-                newBlog.userName = user.userName;
-            }
+            // if (user) {
+            //     newBlog.userImage = user.profileImage;
+            //     newBlog.userName = user.userName;
+            // }
             const result = await blogsCollection.insertOne(newBlog);
             res.status(201).json(result);
         });
@@ -228,6 +267,7 @@ async function run() {
             const blogId = req.params.blogId;
             const comments = await commentsCollection
                 .find({ blogId: blogId })
+                .sort({ createdDateTime: -1 })
                 .toArray();
             res.status(200).json(comments);
         });
@@ -263,6 +303,104 @@ async function run() {
         app.delete("/api/comments/:id", verifyJWT, async (req, res) => {
             const id = new ObjectId(req.params.id);
             const result = await commentsCollection.deleteOne({ _id: id });
+            res.status(200).json(result);
+        });
+
+        // ---------------------------------------------
+        // Wishlist Related APIs
+        // ---------------------------------------------
+
+        // Get wishlist items by category and query for the currently logged-in user
+        app.get("/api/wishlist/search", verifyJWT, async (req, res) => {
+            try {
+                // console.log("client hitting");
+                const { category, query, userId } = req.query;
+                let filter = { userId };
+
+                if (category) {
+                    filter.category = category.trim();
+                }
+
+                if (query) {
+                    const trimmedQuery = query.trim();
+                    filter.title = { $regex: trimmedQuery, $options: "i" };
+                }
+
+                // console.log("Filter Object:", filter);
+
+                const wishlistItems = await wishlistCollection
+                    .find(filter)
+                    .toArray();
+
+                if (!wishlistItems.length) {
+                    return res
+                        .status(200)
+                        .json({ message: "No matching items found." });
+                }
+
+                res.status(200).json(wishlistItems);
+            } catch (error) {
+                console.error("Error fetching wishlist items:", error);
+                res.status(500).json({
+                    message: "Failed to fetch wishlist items.",
+                });
+            }
+        });
+
+        // Get all wishlist items for a user
+        app.get("/api/wishlist/:userId", verifyJWT, async (req, res) => {
+            // console.log("client hiiting");
+            const userId = req.params.userId;
+            const wishlistItems = await wishlistCollection
+                .find({
+                    userId: userId,
+                })
+                .toArray();
+            res.status(200).json(wishlistItems);
+        });
+
+        // Check if an item is in the wishlist
+        app.get(
+            "/api/wishlist/:userId/:blogId",
+            verifyJWT,
+            async (req, res) => {
+                // console.log("client")
+                const userId = req.params.userId;
+                const blogId = req.params.blogId;
+                const item = await wishlistCollection.findOne({
+                    userId,
+                    blogId,
+                });
+
+                if (item) {
+                    res.status(200).json({ exists: true });
+                } else {
+                    res.status(200).json({ exists: false });
+                }
+            }
+        );
+        // Add an item to the wishlist
+        app.post("/api/wishlist", verifyJWT, async (req, res) => {
+            const newItem = req.body;
+            const existingItem = await wishlistCollection.findOne({
+                userId: newItem.userId,
+                blogId: newItem.blogId,
+            });
+
+            if (existingItem) {
+                return res
+                    .status(400)
+                    .json({ message: "Item already in wishlist" });
+            }
+
+            const result = await wishlistCollection.insertOne(newItem);
+            res.status(201).json(result);
+        });
+
+        // Remove an item from the wishlist by id
+        app.delete("/api/wishlist/:id", verifyJWT, async (req, res) => {
+            const id = new ObjectId(req.params.id);
+            const result = await wishlistCollection.deleteOne({ _id: id });
             res.status(200).json(result);
         });
 
