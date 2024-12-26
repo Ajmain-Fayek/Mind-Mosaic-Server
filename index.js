@@ -16,8 +16,11 @@ app.use(favicon(path.join(__dirname, "public", "favicon.png")));
 app.use(
     cors({
         origin: [
-            process.env.CORS_ORIGIN,
+            "http://localhost:5173",
             "https://mind-mosaic.firebaseapp.com",
+            "https://mind-mosaic-abb79.web.app",
+            "https://mind-mosaic.web.app",
+            "https://mind-mosaic-abb79.firebaseapp.com",
         ],
         credentials: true,
     })
