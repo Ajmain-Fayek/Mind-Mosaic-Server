@@ -22,6 +22,7 @@ app.use(
             "https://mind-mosaic.web.app",
             "https://mind-mosaic-abb79.firebaseapp.com",
         ],
+        methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
         credentials: true,
     })
 );
