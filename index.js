@@ -17,9 +17,9 @@ app.use(
     cors({
         origin: [
             "http://localhost:5173",
+            "https://mind-mosaic.web.app",
             "https://mind-mosaic.firebaseapp.com",
             "https://mind-mosaic-abb79.web.app",
-            "https://mind-mosaic.web.app",
             "https://mind-mosaic-abb79.firebaseapp.com",
         ],
         methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
